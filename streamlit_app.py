@@ -49,6 +49,30 @@ def combination_respects_university_day_rule(course_combination):
             return False
     return True
 
+def no_more_than_6_consecutive_hours(course_combination):
+    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
+        slots = []
+        for code, course in course_combination:
+            for slot in course['parsed_schedule']:
+                if slot['day'] == day:
+                    slots.append(slot)
+        if not slots:
+            continue
+        slots.sort(key=lambda x: x['start'])
+        merged_slots = []
+        current_slot = slots[0].copy()
+        for slot in slots[1:]:
+            if slot['start'] <= current_slot['end']:
+                current_slot['end'] = max(current_slot['end'], slot['end'])
+            else:
+                merged_slots.append(current_slot)
+                current_slot = slot.copy()
+        merged_slots.append(current_slot)
+        for slot in merged_slots:
+            if slot['end'] - slot['start'] > 6:
+                return False
+    return True
+
 def get_number_of_class_days(course_combination):
     days_with_classes = set()
     for code, course in course_combination:
@@ -85,36 +109,51 @@ def total_gap_time(course_combination):
     return total_gap
 
 def max_consecutive_hours(course_combination):
-    days = {}
-    for code, course in course_combination:
-        for slot in course['parsed_schedule']:
-            day = slot['day']
-            if day not in days:
-                days[day] = []
-            days[day].append(slot)
     max_consecutive = 0
-    for slots in days.values():
+    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
+        slots = []
+        for code, course in course_combination:
+            for slot in course['parsed_schedule']:
+                if slot['day'] == day:
+                    slots.append(slot)
+        if not slots:
+            continue
         slots.sort(key=lambda x: x['start'])
-        # Merge overlapping or consecutive slots
         merged_slots = []
         current_slot = slots[0].copy()
         for slot in slots[1:]:
             if slot['start'] <= current_slot['end']:
-                # Overlapping or consecutive slots
                 current_slot['end'] = max(current_slot['end'], slot['end'])
-            elif slot['start'] == current_slot['end']:
-                # Consecutive slots
-                current_slot['end'] = slot['end']
             else:
-                # Gap between slots
                 merged_slots.append(current_slot)
                 current_slot = slot.copy()
         merged_slots.append(current_slot)
-        # Find the longest merged slot
         day_max_consecutive = max(slot['end'] - slot['start'] for slot in merged_slots)
+        if day_max_consecutive > 6:
+            return None  # Exceeds the 6-hour limit
         if day_max_consecutive > max_consecutive:
             max_consecutive = day_max_consecutive
     return max_consecutive
+
+def earliest_start_time(course_combination):
+    earliest = 24
+    for code, course in course_combination:
+        for slot in course['parsed_schedule']:
+            if slot['start'] < earliest:
+                earliest = slot['start']
+    return earliest
+
+def latest_end_time(course_combination):
+    latest = 0
+    for code, course in course_combination:
+        for slot in course['parsed_schedule']:
+            if slot['end'] > latest:
+                latest = slot['end']
+    return latest
+
+def number_of_free_days(course_combination):
+    days_with_classes = set(slot['day'] for code, course in course_combination for slot in course['parsed_schedule'])
+    return 5 - len(days_with_classes)
 
 def generate_valid_schedules(courses, min_credits, max_credits, max_days):
     valid_schedules = []
@@ -126,16 +165,22 @@ def generate_valid_schedules(courses, min_credits, max_credits, max_days):
             if min_credits <= total_ects <= max_credits:
                 if combination_has_no_conflicts(course_combination):
                     if combination_respects_university_day_rule(course_combination):
-                        num_class_days = get_number_of_class_days(course_combination)
-                        if num_class_days <= max_days:
-                            valid_schedules.append({
-                                'combo': course_combination,
-                                'num_days': num_class_days,
-                                'gap_time': total_gap_time(course_combination),
-                                'max_consec': max_consecutive_hours(course_combination),
-                                'total_hours': total_class_hours(course_combination),
-                                'total_ects': total_credits(course_combination),
-                            })
+                        if no_more_than_6_consecutive_hours(course_combination):
+                            num_class_days = get_number_of_class_days(course_combination)
+                            if num_class_days <= max_days:
+                                max_consec = max_consecutive_hours(course_combination)
+                                if max_consec is not None:  # Does not exceed 6 consecutive hours
+                                    valid_schedules.append({
+                                        'combo': course_combination,
+                                        'num_days': num_class_days,
+                                        'gap_time': total_gap_time(course_combination),
+                                        'max_consec': max_consec,
+                                        'total_hours': total_class_hours(course_combination),
+                                        'total_ects': total_credits(course_combination),
+                                        'earliest_start': earliest_start_time(course_combination),
+                                        'latest_end': latest_end_time(course_combination),
+                                        'free_days': number_of_free_days(course_combination),
+                                    })
     return valid_schedules
 
 def plot_schedule(course_combination):
@@ -166,7 +211,7 @@ def plot_schedule(course_combination):
                 day_idx,
                 slot['start'] + 0.5,
                 f"{code}\n{slot['class_type']}",
-                ha='center', va='bottom', color='white', fontsize=8
+                ha='center', va='center', color='white', fontsize=8
             )
 
     ax.set_ylim(20, 8)  # Invert y-axis to have time increase from top to bottom
@@ -204,25 +249,29 @@ def main():
         "Select ECTS range",
         min_value=0.0,
         max_value=30.0,
-        value=(0.0, 30.0),
+        value=(30.0, 30.0),
         step=0.5
     )
 
     # Ranking weights
     st.sidebar.header("Ranking Weights")
-    w_num_days = st.sidebar.slider("Weight for Number of Class Days", 0.0, 1.0, 0.3)
-    w_gap_time = st.sidebar.slider("Weight for Total Gap Time", 0.0, 1.0, 0.3)
-    w_max_consecutive = st.sidebar.slider("Weight for Max Consecutive Hours", 0.0, 1.0, 0.4)
+    w_num_days = st.sidebar.slider("Weight for Number of Class Days", 0.0, 1.0, 0.2)
+    w_gap_time = st.sidebar.slider("Weight for Total Gap Time", 0.0, 1.0, 0.2)
+    w_max_consecutive = st.sidebar.slider("Weight for Max Consecutive Hours", 0.0, 1.0, 0.2)
+    w_earliest_start = st.sidebar.slider("Weight for Earliest Start Time", 0.0, 1.0, 0.2)
+    w_latest_end = st.sidebar.slider("Weight for Latest End Time", 0.0, 1.0, 0.2)
+    w_free_days = st.sidebar.slider("Weight for Number of Free Days", 0.0, 1.0, 0.2)
 
     # Normalize weights to sum to 1
-    total_weight = w_num_days + w_gap_time + w_max_consecutive
+    weights = [w_num_days, w_gap_time, w_max_consecutive, w_earliest_start, w_latest_end, w_free_days]
+    total_weight = sum(weights)
     if total_weight > 0:
-        w_num_days /= total_weight
-        w_gap_time /= total_weight
-        w_max_consecutive /= total_weight
+        weights = [w / total_weight for w in weights]
     else:
         st.error("At least one weight must be greater than zero.")
         return
+
+    w_num_days, w_gap_time, w_max_consecutive, w_earliest_start, w_latest_end, w_free_days = weights
 
     # Filter courses
     filtered_courses = {
@@ -242,36 +291,38 @@ def main():
     num_days_values = [s['num_days'] for s in valid_schedules]
     gap_time_values = [s['gap_time'] for s in valid_schedules]
     max_consec_values = [s['max_consec'] for s in valid_schedules]
+    earliest_start_values = [s['earliest_start'] for s in valid_schedules]
+    latest_end_values = [s['latest_end'] for s in valid_schedules]
+    free_days_values = [s['free_days'] for s in valid_schedules]
 
-    min_num_days = min(num_days_values)
-    max_num_days = max(num_days_values)
-    min_gap_time = min(gap_time_values)
-    max_gap_time = max(gap_time_values)
-    min_max_consec = min(max_consec_values)
-    max_max_consec = max(max_consec_values)
+    # Normalization function with reverse option
+    def normalize(value, min_value, max_value, reverse=False):
+        if max_value - min_value > 0:
+            normalized = (value - min_value) / (max_value - min_value)
+            if reverse:
+                return 1 - normalized
+            else:
+                return normalized
+        else:
+            return 0.0
 
     # Normalize and compute scores
     for s in valid_schedules:
-        # Normalize num_days
-        if max_num_days - min_num_days > 0:
-            s['norm_num_days'] = (s['num_days'] - min_num_days) / (max_num_days - min_num_days)
-        else:
-            s['norm_num_days'] = 0.0
-        # Normalize gap_time
-        if max_gap_time - min_gap_time > 0:
-            s['norm_gap_time'] = (s['gap_time'] - min_gap_time) / (max_gap_time - min_gap_time)
-        else:
-            s['norm_gap_time'] = 0.0
-        # Normalize max_consec
-        if max_max_consec - min_max_consec > 0:
-            s['norm_max_consec'] = (s['max_consec'] - min_max_consec) / (max_max_consec - min_max_consec)
-        else:
-            s['norm_max_consec'] = 0.0
+        s['norm_num_days'] = normalize(s['num_days'], min(num_days_values), max(num_days_values), reverse=False)
+        s['norm_gap_time'] = normalize(s['gap_time'], min(gap_time_values), max(gap_time_values), reverse=False)
+        s['norm_max_consec'] = normalize(s['max_consec'], min(max_consec_values), max(max_consec_values), reverse=False)
+        s['norm_earliest_start'] = normalize(s['earliest_start'], min(earliest_start_values), max(earliest_start_values), reverse=True)
+        s['norm_latest_end'] = normalize(s['latest_end'], min(latest_end_values), max(latest_end_values), reverse=False)
+        s['norm_free_days'] = normalize(s['free_days'], min(free_days_values), max(free_days_values), reverse=True)
+
         # Compute score
         s['score'] = (
             w_num_days * s['norm_num_days'] +
             w_gap_time * s['norm_gap_time'] +
-            w_max_consecutive * s['norm_max_consec']
+            w_max_consecutive * s['norm_max_consec'] +
+            w_earliest_start * s['norm_earliest_start'] +
+            w_latest_end * s['norm_latest_end'] +
+            w_free_days * s['norm_free_days']
         )
 
     # Sort schedules
@@ -298,6 +349,9 @@ def main():
     st.write(f"- Number of Class Days: {selected_schedule_data['num_days']}")
     st.write(f"- Total Gap Time Between Classes: {selected_schedule_data['gap_time']} hours")
     st.write(f"- Maximum Consecutive Hours: {selected_schedule_data['max_consec']} hours")
+    st.write(f"- Earliest Start Time: {selected_schedule_data['earliest_start']}:00")
+    st.write(f"- Latest End Time: {selected_schedule_data['latest_end']}:00")
+    st.write(f"- Number of Free Days: {selected_schedule_data['free_days']}")
     st.write(f"- Score: {selected_schedule_data['score']:.3f}")
 
 if __name__ == "__main__":

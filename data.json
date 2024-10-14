@@ -1,0 +1,122 @@
+{
+    "COR": {
+        "University": "URV",
+        "Schedule": {
+            "Theory": ["Monday 11-12", "Monday 12-13"],
+            "Lab": ["Monday 16-17", "Monday 17-18"]
+        },
+        "ECTS": 4.5
+    },
+    "PMCDSS": {
+        "University": "URV",
+        "Schedule": {
+            "Theory": ["Monday 14-15", "Monday 15-16"],
+            "Lab": ["Monday 16-17", "Monday 17-18"]
+        },
+        "ECTS": 4.5
+    },
+    "SOAS": {
+        "University": "UB",
+        "Schedule": {
+            "Theory": ["Tuesday 10-11", "Tuesday 11-12", "Tuesday 12-13"],
+            "Lab": []
+        },
+        "ECTS": 4.5
+    },
+    "OR": {
+        "University": "UB",
+        "Schedule": {
+            "Theory": ["Tuesday 12-13", "Tuesday 13-14"],
+            "Lab": ["Tuesday 14-15", "Tuesday 15-16"]
+        },
+        "ECTS": 4
+    },
+    "MBM": {
+        "University": "UB",
+        "Schedule": {
+            "Theory": ["Tuesday 17-18", "Tuesday 18-19"],
+            "Lab": ["Tuesday 19-20"]
+        },
+        "ECTS": 4
+    },
+    "LAI": {
+        "University": "URV",
+        "Schedule": {
+            "Theory": ["Wednesday 10-11", "Wednesday 11-12", "Wednesday 12-13"],
+            "Lab": []
+        },
+        "ECTS": 6
+    },
+    "CN": {
+        "University": "URV",
+        "Schedule": {
+            "Theory": ["Wednesday 14-15", "Wednesday 15-16"],
+            "Lab": ["Wednesday 16-17", "Wednesday 17-18"]
+        },
+        "ECTS": 5
+    },
+    "PPAI": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Thursday 8-9", "Thursday 9-10"],
+            "Lab": []
+        },
+        "ECTS": 3
+    },
+    "SEL": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Thursday 10-11", "Thursday 11-12"],
+            "Lab": ["Thursday 12-13"]
+        },
+        "ECTS": 4.5
+    },
+    "HCI": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Thursday 15-16"],
+            "Lab": ["Thursday 13-14", "Thursday 14-15"]
+        },
+        "ECTS": 4.5
+    },
+    "AHLT": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Thursday 16-17", "Thursday 17-18"],
+            "Lab": ["Thursday 18-19", "Thursday 19-20"]
+        },
+        "ECTS": 5
+    },
+    "URL": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Friday 8-9", "Friday 9-10", "Friday 10-11"],
+            "Lab": []
+        },
+        "ECTS": 4.5
+    },
+    "ATCI": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Friday 11-12", "Friday 12-13"],
+            "Lab": ["Friday 13-14"]
+        },
+        "ECTS": 4
+    },
+    "DL": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Friday 14-15", "Friday 15-16"],
+            "Lab": []
+        },
+        "ECTS": 4.5
+    },
+    "MASD": {
+        "University": "UPC",
+        "Schedule": {
+            "Theory": ["Thursday 16-17", "Thursday 17-18"],
+            "Lab": []
+        },
+        "ECTS": 4
+    }
+}

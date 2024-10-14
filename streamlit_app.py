@@ -2,6 +2,7 @@ import json
 import streamlit as st
 from itertools import combinations
 import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
 
 def parse_schedule(schedule_dict):
     schedule_list = []
@@ -80,16 +81,6 @@ def get_number_of_class_days(course_combination):
             days_with_classes.add(slot['day'])
     return len(days_with_classes)
 
-def total_class_hours(course_combination):
-    total_hours = 0
-    for code, course in course_combination:
-        for slot in course['parsed_schedule']:
-            total_hours += slot['end'] - slot['start']
-    return total_hours
-
-def total_credits(course_combination):
-    return sum(course['ECTS'] for code, course in course_combination)
-
 def total_gap_time(course_combination):
     days = {}
     for code, course in course_combination:
@@ -151,17 +142,27 @@ def latest_end_time(course_combination):
                 latest = slot['end']
     return latest
 
-def number_of_free_days(course_combination):
-    days_with_classes = set(slot['day'] for code, course in course_combination for slot in course['parsed_schedule'])
-    return 5 - len(days_with_classes)
+def total_class_hours(course_combination):
+    total_hours = 0
+    for code, course in course_combination:
+        for slot in course['parsed_schedule']:
+            total_hours += slot['end'] - slot['start']
+    return total_hours
 
-def generate_valid_schedules(courses, min_credits, max_credits, max_days):
+def total_credits(course_combination):
+    return sum(course['ECTS'] for code, course in course_combination)
+
+def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandatory_courses):
     valid_schedules = []
     course_items = list(courses.items())
     N = len(course_items)
-    for r in range(1, N+1):
+    mandatory_course_codes = set(mandatory_courses)
+    for r in range(len(mandatory_courses), N+1):
         for course_combination in combinations(course_items, r):
-            total_ects = total_credits(course_combination)
+            course_codes = set(code for code, _ in course_combination)
+            if not mandatory_course_codes.issubset(course_codes):
+                continue  # Mandatory courses not included
+            total_ects = sum(course['ECTS'] for code, course in course_combination)
             if min_credits <= total_ects <= max_credits:
                 if combination_has_no_conflicts(course_combination):
                     if combination_respects_university_day_rule(course_combination):
@@ -169,7 +170,7 @@ def generate_valid_schedules(courses, min_credits, max_credits, max_days):
                             num_class_days = get_number_of_class_days(course_combination)
                             if num_class_days <= max_days:
                                 max_consec = max_consecutive_hours(course_combination)
-                                if max_consec is not None:  # Does not exceed 6 consecutive hours
+                                if max_consec is not None:
                                     valid_schedules.append({
                                         'combo': course_combination,
                                         'num_days': num_class_days,
@@ -179,7 +180,6 @@ def generate_valid_schedules(courses, min_credits, max_credits, max_days):
                                         'total_ects': total_credits(course_combination),
                                         'earliest_start': earliest_start_time(course_combination),
                                         'latest_end': latest_end_time(course_combination),
-                                        'free_days': number_of_free_days(course_combination),
                                     })
     return valid_schedules
 
@@ -188,7 +188,7 @@ def plot_schedule(course_combination):
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # Prepare colors
-    colors = plt.cm.get_cmap('tab20', len(course_combination))
+    colors = ListedColormap(plt.colormaps.get_cmap('tab10').colors[:len(course_combination)])
     course_colors = {}
     for idx, (code, course) in enumerate(course_combination):
         course_colors[code] = colors(idx)
@@ -209,7 +209,7 @@ def plot_schedule(course_combination):
             )
             ax.text(
                 day_idx,
-                slot['start'] + 0.5,
+                slot['start'] + (slot['end'] - slot['start']) / 2,
                 f"{code}\n{slot['class_type']}",
                 ha='center', va='center', color='white', fontsize=8
             )
@@ -248,30 +248,34 @@ def main():
     min_credits, max_credits = st.sidebar.slider(
         "Select ECTS range",
         min_value=0.0,
-        max_value=30.0,
+        max_value=35.0,
         value=(30.0, 30.0),
         step=0.5
     )
 
-    # Ranking weights
-    st.sidebar.header("Ranking Weights")
-    w_num_days = st.sidebar.slider("Weight for Number of Class Days", 0.0, 1.0, 0.2)
-    w_gap_time = st.sidebar.slider("Weight for Total Gap Time", 0.0, 1.0, 0.2)
-    w_max_consecutive = st.sidebar.slider("Weight for Max Consecutive Hours", 0.0, 1.0, 0.2)
-    w_earliest_start = st.sidebar.slider("Weight for Earliest Start Time", 0.0, 1.0, 0.2)
-    w_latest_end = st.sidebar.slider("Weight for Latest End Time", 0.0, 1.0, 0.2)
-    w_free_days = st.sidebar.slider("Weight for Number of Free Days", 0.0, 1.0, 0.2)
+    # Mandatory courses
+    st.sidebar.header("Mandatory Courses")
+    course_codes = sorted(data.keys())
+    mandatory_courses = st.sidebar.multiselect("Select mandatory courses", course_codes, default=[])
 
-    # Normalize weights to sum to 1
-    weights = [w_num_days, w_gap_time, w_max_consecutive, w_earliest_start, w_latest_end, w_free_days]
-    total_weight = sum(weights)
-    if total_weight > 0:
-        weights = [w / total_weight for w in weights]
+    # Penalties
+    st.sidebar.header("Penalties")
+    p_num_days = st.sidebar.slider("Penalty for Number of Class Days", 0.0, 1.0, 0.2)
+    p_gap_time = st.sidebar.slider("Penalty for Total Gap Time", 0.0, 1.0, 0.2)
+    p_max_consecutive = st.sidebar.slider("Penalty for Max Consecutive Hours", 0.0, 1.0, 0.2)
+    p_earliest_start = st.sidebar.slider("Penalty for Starting Early", 0.0, 1.0, 0.2)
+    p_latest_end = st.sidebar.slider("Penalty for Ending Late", 0.0, 1.0, 0.2)
+
+    # Normalize penalties to sum to 1
+    penalties = [p_num_days, p_gap_time, p_max_consecutive, p_earliest_start, p_latest_end]
+    total_penalty_weight = sum(penalties)
+    if total_penalty_weight > 0:
+        penalties = [p / total_penalty_weight for p in penalties]
     else:
-        st.error("At least one weight must be greater than zero.")
+        st.error("At least one penalty must be greater than zero.")
         return
 
-    w_num_days, w_gap_time, w_max_consecutive, w_earliest_start, w_latest_end, w_free_days = weights
+    p_num_days, p_gap_time, p_max_consecutive, p_earliest_start, p_latest_end = penalties
 
     # Filter courses
     filtered_courses = {
@@ -281,7 +285,7 @@ def main():
 
     # Generate valid schedules
     valid_schedules = generate_valid_schedules(
-        filtered_courses, min_credits, max_credits, max_days_per_week)
+        filtered_courses, min_credits, max_credits, max_days_per_week, mandatory_courses)
 
     if not valid_schedules:
         st.warning("No valid schedules found with the given criteria.")
@@ -293,7 +297,6 @@ def main():
     max_consec_values = [s['max_consec'] for s in valid_schedules]
     earliest_start_values = [s['earliest_start'] for s in valid_schedules]
     latest_end_values = [s['latest_end'] for s in valid_schedules]
-    free_days_values = [s['free_days'] for s in valid_schedules]
 
     # Normalization function with reverse option
     def normalize(value, min_value, max_value, reverse=False):
@@ -306,31 +309,50 @@ def main():
         else:
             return 0.0
 
-    # Normalize and compute scores
+    # Normalize and compute penalty scores
     for s in valid_schedules:
         s['norm_num_days'] = normalize(s['num_days'], min(num_days_values), max(num_days_values), reverse=False)
         s['norm_gap_time'] = normalize(s['gap_time'], min(gap_time_values), max(gap_time_values), reverse=False)
         s['norm_max_consec'] = normalize(s['max_consec'], min(max_consec_values), max(max_consec_values), reverse=False)
-        s['norm_earliest_start'] = normalize(s['earliest_start'], min(earliest_start_values), max(earliest_start_values), reverse=True)
+        s['norm_earliest_start'] = normalize(s['earliest_start'], min(earliest_start_values), max(earliest_start_values), reverse=False)
         s['norm_latest_end'] = normalize(s['latest_end'], min(latest_end_values), max(latest_end_values), reverse=False)
-        s['norm_free_days'] = normalize(s['free_days'], min(free_days_values), max(free_days_values), reverse=True)
 
-        # Compute score
-        s['score'] = (
-            w_num_days * s['norm_num_days'] +
-            w_gap_time * s['norm_gap_time'] +
-            w_max_consecutive * s['norm_max_consec'] +
-            w_earliest_start * s['norm_earliest_start'] +
-            w_latest_end * s['norm_latest_end'] +
-            w_free_days * s['norm_free_days']
+        # Compute total penalty
+        s['total_penalty'] = (
+            p_num_days * s['norm_num_days'] +
+            p_gap_time * s['norm_gap_time'] +
+            p_max_consecutive * s['norm_max_consec'] +
+            p_earliest_start * s['norm_earliest_start'] +
+            p_latest_end * s['norm_latest_end']
         )
 
-    # Sort schedules
-    valid_schedules.sort(key=lambda s: s['score'])
-    selected_schedule_data = valid_schedules[0]
+    # Sort schedules by total penalty (lower is better)
+    valid_schedules.sort(key=lambda s: s['total_penalty'])
+
+    # Initialize session state for schedule index
+    if 'schedule_index' not in st.session_state:
+        st.session_state.schedule_index = 0
+
+    # Navigation buttons (placed before plotting)
+    st.success(f"Found {len(valid_schedules)} valid schedules.")
+    col1, _, col2 = st.columns([1, 3, 1])
+    with col1:
+        if st.button("Previous"):
+            if st.session_state.schedule_index > 0:
+                st.session_state.schedule_index -= 1
+    with col2:
+        if st.button("Next"):
+            if st.session_state.schedule_index < len(valid_schedules) - 1:
+                st.session_state.schedule_index += 1
+
+    # Ensure schedule_index is within bounds
+    st.session_state.schedule_index = max(0, min(st.session_state.schedule_index, len(valid_schedules) - 1))
+
+    # Get the selected schedule based on the index
+    selected_schedule_data = valid_schedules[st.session_state.schedule_index]
     selected_schedule = selected_schedule_data['combo']
 
-    st.success(f"Found {len(valid_schedules)} valid schedules.")
+    st.write(f"Displaying schedule {st.session_state.schedule_index + 1} of {len(valid_schedules)}")
 
     # Plot the selected schedule
     st.subheader("Selected Schedule")
@@ -351,8 +373,15 @@ def main():
     st.write(f"- Maximum Consecutive Hours: {selected_schedule_data['max_consec']} hours")
     st.write(f"- Earliest Start Time: {selected_schedule_data['earliest_start']}:00")
     st.write(f"- Latest End Time: {selected_schedule_data['latest_end']}:00")
-    st.write(f"- Number of Free Days: {selected_schedule_data['free_days']}")
-    st.write(f"- Score: {selected_schedule_data['score']:.3f}")
+    st.write(f"- Total Penalty: {selected_schedule_data['total_penalty']:.3f}")
+
+    # Implicit Restrictions Section
+    st.subheader("Implicit Restrictions")
+    st.markdown("""
+    - **No Classes from Different Universities on the Same Day**: You cannot have classes from different universities scheduled on the same day.
+    - **Maximum 6 Consecutive Hours of Classes per Day**: Schedules with more than 6 consecutive hours of classes on any day are excluded.
+    - **No Time Conflicts**: Classes within a schedule do not overlap in time.
+    """)
 
 if __name__ == "__main__":
     main()

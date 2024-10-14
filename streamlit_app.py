@@ -250,7 +250,7 @@ def main():
         "Select ECTS range",
         min_value=0.0,
         max_value=35.0,
-        value=(30.0, 30.0),
+        value=(30.0, 31.0),
         step=0.5
     )
 
@@ -267,6 +267,7 @@ def main():
 
     # Penalties
     st.sidebar.header("Penalties")
+    st.sidebar.write("(merely affects order or solutions)")
     p_num_days = st.sidebar.slider("Penalty for Number of Class Days", 0.0, 1.0, 0.2)
     p_gap_time = st.sidebar.slider("Penalty for Total Gap Time", 0.0, 1.0, 0.2)
     p_max_consecutive = st.sidebar.slider("Penalty for Max Consecutive Hours", 0.0, 1.0, 0.2)

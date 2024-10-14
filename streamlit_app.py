@@ -152,9 +152,10 @@ def total_class_hours(course_combination):
 def total_credits(course_combination):
     return sum(course['ECTS'] for code, course in course_combination)
 
-def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandatory_courses):
+def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandatory_courses, excluded_courses):
     valid_schedules = []
-    course_items = list(courses.items())
+    # Exclude the courses that are in the excluded_courses list
+    course_items = [(code, course) for code, course in courses.items() if code not in excluded_courses]
     N = len(course_items)
     mandatory_course_codes = set(mandatory_courses)
     for r in range(len(mandatory_courses), N+1):
@@ -254,9 +255,15 @@ def main():
     )
 
     # Mandatory courses
-    st.sidebar.header("Mandatory Courses")
     course_codes = sorted(data.keys())
     mandatory_courses = st.sidebar.multiselect("Select mandatory courses", course_codes, default=[])
+
+    # Excluded courses
+    excluded_courses = st.sidebar.multiselect("Select courses to exclude", course_codes, default=[])
+
+    # Check for conflicts between mandatory and excluded courses
+    if set(mandatory_courses) & set(excluded_courses):
+        st.warning("Some courses are both mandatory and excluded. Please adjust your selections.")
 
     # Penalties
     st.sidebar.header("Penalties")
@@ -285,7 +292,7 @@ def main():
 
     # Generate valid schedules
     valid_schedules = generate_valid_schedules(
-        filtered_courses, min_credits, max_credits, max_days_per_week, mandatory_courses)
+        filtered_courses, min_credits, max_credits, max_days_per_week, mandatory_courses, excluded_courses)
 
     if not valid_schedules:
         st.warning("No valid schedules found with the given criteria.")

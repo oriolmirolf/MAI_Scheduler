@@ -50,7 +50,8 @@ def combination_respects_university_day_rule(course_combination):
             return False
     return True
 
-def no_more_than_6_consecutive_hours(course_combination):
+def max_consecutive_hours(course_combination, enforce_limit=True):
+    max_consecutive = 0
     for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
         slots = []
         for code, course in course_combination:
@@ -69,10 +70,12 @@ def no_more_than_6_consecutive_hours(course_combination):
                 merged_slots.append(current_slot)
                 current_slot = slot.copy()
         merged_slots.append(current_slot)
-        for slot in merged_slots:
-            if slot['end'] - slot['start'] > 6:
-                return False
-    return True
+        day_max_consecutive = max(slot['end'] - slot['start'] for slot in merged_slots)
+        if enforce_limit and day_max_consecutive > 6:
+            return None  # Exceeds the 6-hour limit
+        if day_max_consecutive > max_consecutive:
+            max_consecutive = day_max_consecutive
+    return max_consecutive
 
 def get_number_of_class_days(course_combination):
     days_with_classes = set()
@@ -98,33 +101,6 @@ def total_gap_time(course_combination):
         class_time = sum(slot['end'] - slot['start'] for slot in slots)
         total_gap += span - class_time
     return total_gap
-
-def max_consecutive_hours(course_combination):
-    max_consecutive = 0
-    for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']:
-        slots = []
-        for code, course in course_combination:
-            for slot in course['parsed_schedule']:
-                if slot['day'] == day:
-                    slots.append(slot)
-        if not slots:
-            continue
-        slots.sort(key=lambda x: x['start'])
-        merged_slots = []
-        current_slot = slots[0].copy()
-        for slot in slots[1:]:
-            if slot['start'] <= current_slot['end']:
-                current_slot['end'] = max(current_slot['end'], slot['end'])
-            else:
-                merged_slots.append(current_slot)
-                current_slot = slot.copy()
-        merged_slots.append(current_slot)
-        day_max_consecutive = max(slot['end'] - slot['start'] for slot in merged_slots)
-        if day_max_consecutive > 6:
-            return None  # Exceeds the 6-hour limit
-        if day_max_consecutive > max_consecutive:
-            max_consecutive = day_max_consecutive
-    return max_consecutive
 
 def earliest_start_time(course_combination):
     earliest = 24
@@ -152,7 +128,8 @@ def total_class_hours(course_combination):
 def total_credits(course_combination):
     return sum(course['ECTS'] for code, course in course_combination)
 
-def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandatory_courses, excluded_courses):
+def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandatory_courses, excluded_courses,
+                             no_conflicts_option, university_day_rule_option, max_6_consecutive_option):
     valid_schedules = []
     # Exclude the courses that are in the excluded_courses list
     course_items = [(code, course) for code, course in courses.items() if code not in excluded_courses]
@@ -165,23 +142,29 @@ def generate_valid_schedules(courses, min_credits, max_credits, max_days, mandat
                 continue  # Mandatory courses not included
             total_ects = sum(course['ECTS'] for code, course in course_combination)
             if min_credits <= total_ects <= max_credits:
-                if combination_has_no_conflicts(course_combination):
-                    if combination_respects_university_day_rule(course_combination):
-                        if no_more_than_6_consecutive_hours(course_combination):
-                            num_class_days = get_number_of_class_days(course_combination)
-                            if num_class_days <= max_days:
-                                max_consec = max_consecutive_hours(course_combination)
-                                if max_consec is not None:
-                                    valid_schedules.append({
-                                        'combo': course_combination,
-                                        'num_days': num_class_days,
-                                        'gap_time': total_gap_time(course_combination),
-                                        'max_consec': max_consec,
-                                        'total_hours': total_class_hours(course_combination),
-                                        'total_ects': total_credits(course_combination),
-                                        'earliest_start': earliest_start_time(course_combination),
-                                        'latest_end': latest_end_time(course_combination),
-                                    })
+                # Check restrictions based on options
+                if no_conflicts_option and not combination_has_no_conflicts(course_combination):
+                    continue
+                if university_day_rule_option and not combination_respects_university_day_rule(course_combination):
+                    continue
+                if max_6_consecutive_option:
+                    max_consec = max_consecutive_hours(course_combination, enforce_limit=True)
+                    if max_consec is None:
+                        continue
+                else:
+                    max_consec = max_consecutive_hours(course_combination, enforce_limit=False)
+                num_class_days = get_number_of_class_days(course_combination)
+                if num_class_days <= max_days:
+                    valid_schedules.append({
+                        'combo': course_combination,
+                        'num_days': num_class_days,
+                        'gap_time': total_gap_time(course_combination),
+                        'max_consec': max_consec,
+                        'total_hours': total_class_hours(course_combination),
+                        'total_ects': total_credits(course_combination),
+                        'earliest_start': earliest_start_time(course_combination),
+                        'latest_end': latest_end_time(course_combination),
+                    })
     return valid_schedules
 
 def plot_schedule(course_combination):
@@ -265,6 +248,12 @@ def main():
     if set(mandatory_courses) & set(excluded_courses):
         st.warning("Some courses are both mandatory and excluded. Please adjust your selections.")
 
+    # Mental Health Options
+    st.sidebar.header("Mental Health Options")
+    no_conflicts_option = st.sidebar.checkbox("No Time Conflicts", value=True)
+    university_day_rule_option = st.sidebar.checkbox("No Classes from Different Universities on the Same Day", value=True)
+    max_6_consecutive_option = st.sidebar.checkbox("Maximum 6 Consecutive Hours of Classes per Day", value=True)
+
     # Penalties
     st.sidebar.header("Penalties")
     st.sidebar.write("(merely affects order or solutions)")
@@ -293,7 +282,8 @@ def main():
 
     # Generate valid schedules
     valid_schedules = generate_valid_schedules(
-        filtered_courses, min_credits, max_credits, max_days_per_week, mandatory_courses, excluded_courses)
+        filtered_courses, min_credits, max_credits, max_days_per_week, mandatory_courses, excluded_courses,
+        no_conflicts_option, university_day_rule_option, max_6_consecutive_option)
 
     if not valid_schedules:
         st.warning("No valid schedules found with the given criteria.")
@@ -382,14 +372,6 @@ def main():
     st.write(f"- Earliest Start Time: {selected_schedule_data['earliest_start']}:00")
     st.write(f"- Latest End Time: {selected_schedule_data['latest_end']}:00")
     st.write(f"- Total Penalty: {selected_schedule_data['total_penalty']:.3f}")
-
-    # Implicit Restrictions Section
-    st.subheader("Implicit Restrictions")
-    st.markdown("""
-    - **No Classes from Different Universities on the Same Day**: You cannot have classes from different universities scheduled on the same day.
-    - **Maximum 6 Consecutive Hours of Classes per Day**: Schedules with more than 6 consecutive hours of classes on any day are excluded.
-    - **No Time Conflicts**: Classes within a schedule do not overlap in time.
-    """)
 
 if __name__ == "__main__":
     main()

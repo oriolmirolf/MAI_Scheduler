@@ -1,6 +1,6 @@
 # MAI Scheduler
 
-An interactive class schedule generator for the Master in Artificial Intelligence (MAI) program, designed to help you create the optimal timetable for Q2 2025 based on preferences and constraints.
+An interactive class schedule generator for UPC, UB and URV [Master in Artificial Intelligence (MAI)](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence) program, designed to help you create the optimal timetable for Q2 2025 based on preferences and constraints.
 
 ## Features
 

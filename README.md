@@ -2,6 +2,14 @@
 
 An interactive class schedule generator for UPC, UB and URV [Master in Artificial Intelligence (MAI)](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence) program, designed to help you create the optimal timetable for Q2 2025 based on preferences and constraints.
 
+## Live Demo
+
+Try out the MAI Scheduler online:
+
+[MAI Scheduler Live App](https://mai-scheduler.streamlit.app)
+
+*Hosted on Streamlit Community Cloud.*
+
 ## Features
 
 - **University Selection**: Choose courses from multiple universities participating in the MAI program.
@@ -22,14 +30,6 @@ An interactive class schedule generator for UPC, UB and URV [Master in Artificia
   - Latest end time.
 - **Visual Schedule Representation**: Generate and view your schedule in a clear, graphical format.
 - **Interactive Navigation**: Browse through all valid schedules that meet your criteria.
-
-## Live Demo
-
-Try out the MAI Scheduler online:
-
-[MAI Scheduler Live App](https://mai-scheduler.streamlit.app)
-
-*Hosted on Streamlit Community Cloud.*
 
 ## Running the App Locally
 

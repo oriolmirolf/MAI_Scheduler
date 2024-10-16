@@ -110,5 +110,5 @@ This project is licensed under the [MIT License](https://mit-license.org).
 ## Contact
 For questions or suggestions, feel free to contact:
 
-Email: mirolopezfeliuoriol@gmail.com
-GitHub Issues: Issue Tracker
+- Email: mirolopezfeliuoriol@gmail.com
+- GitHub Issues: [Issue Tracker](https://github.com/oriolmirolf/MAI_Scheduler/issues)

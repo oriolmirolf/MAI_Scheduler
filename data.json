@@ -114,8 +114,8 @@
     "MASD": {
         "University": "UPC",
         "Schedule": {
-            "Theory": ["Thursday 16-17", "Thursday 17-18"],
-            "Lab": []
+            "Theory": ["Friday 17-18", "Friday 18-19"],
+            "Lab": ["Friday 16-17"]
         },
         "ECTS": 4
     }

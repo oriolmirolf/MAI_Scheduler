@@ -3,7 +3,7 @@ import streamlit as st
 import json
 from db import get_db_session
 from auth import get_user_schedules
-from app import parse_schedule, plot_schedule
+from streamlit_app import parse_schedule, plot_schedule
 
 def load_course_data():
     """Helper to load data.json. Adjust path if needed."""

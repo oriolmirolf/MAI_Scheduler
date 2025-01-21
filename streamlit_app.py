@@ -293,14 +293,18 @@ def main():
     else:
         # Already logged in (or user closed expander)
         if st.session_state["logged_in"]:
-            if st.button("Logout"):
-                st.session_state["logged_in"] = False
-                st.session_state["user_id"] = None
-                st.session_state["username"] = None
-                st.session_state["show_login_expander"] = True
-                st.experimental_rerun()
+            left_col, right_col, space = st.columns([1, 1, 5])
+            with left_col:
+                st.write(f"Logged in as **{st.session_state['username']}**")
+            with right_col:
+                if st.button("Logout"):
+                    st.session_state["logged_in"] = False
+                    st.session_state["user_id"] = None
+                    st.session_state["username"] = None
+                    st.session_state["show_login_expander"] = True
+                    st.experimental_rerun()
 
-    st.write("**Note**: Logging in is optional. If you do not log in, you can still explore schedules, but you cannot save them.")
+    st.write("**Note**: Logging in is optional. If you don't, you can still explore schedules, but not save them.")
 
     # -----------------------------
     # Load course data
@@ -407,11 +411,13 @@ def main():
             p_late * s["norm_latest_end"]
         )
 
-    # Sort by penalty ascending
-    schedules.sort(key=lambda x: x["total_penalty"])
-
     if "schedule_index" not in st.session_state:
         st.session_state["schedule_index"] = 0
+    
+    # Sort by penalty ascending
+    schedules.sort(key=lambda x: x["total_penalty"])
+    idx = st.session_state["schedule_index"]
+    selected = schedules[idx]
 
     st.success(f"Found {len(schedules)} valid schedules.")
     prev_col, next_col, space_col, save_col = st.columns([2, 2, 3, 2])
@@ -457,8 +463,6 @@ def main():
         else:
             st.info("Login or register to save schedules.")
             
-    idx = st.session_state["schedule_index"]
-    selected = schedules[idx]
     st.write(f"Schedule {idx+1} / {len(schedules)}")
 
     fig = plot_schedule(selected["combo"])
@@ -478,10 +482,11 @@ if __name__ == "__main__":
     
     # add_page_title()
     
+    st.set_page_config(page_title="Class Schedule Generator", layout="wide", page_icon="🏠")
     show_pages(
         [
             Page("streamlit_app.py", "Home", "🏠"),
-            Page("pages/saved_courses.py", "Saved Courses", "💾"),
+            Page("pages/saved_schedules.py", "Saved Schedules", "💾"),
         ]
     )
     

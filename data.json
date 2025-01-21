@@ -15,14 +15,6 @@
         },
         "ECTS": 4.5
     },
-    "SOAS": {
-        "University": "UB",
-        "Schedule": {
-            "Theory": ["Tuesday 10-11", "Tuesday 11-12", "Tuesday 12-13"],
-            "Lab": []
-        },
-        "ECTS": 4.5
-    },
     "OR": {
         "University": "UB",
         "Schedule": {

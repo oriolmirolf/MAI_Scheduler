@@ -476,7 +476,7 @@ def main():
 
 if __name__ == "__main__":
     
-    add_page_title()
+    # add_page_title()
     
     show_pages(
         [

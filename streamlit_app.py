@@ -9,6 +9,9 @@ from db import init_db, get_db_session
 from auth import register_user, authenticate_user, save_schedule_for_user
 from sqlalchemy.orm import Session
 
+from st_pages import Page, show_pages, add_page_title
+
+
 ###############################################################################
 # 1) Database initialization
 ###############################################################################
@@ -212,7 +215,8 @@ def plot_schedule(course_combination):
 # 3) Streamlit App: Main Page
 ###############################################################################
 def main():
-    st.set_page_config(page_title="Class Schedule Generator", layout="wide")
+    # st.set_page_config(page_title="Class Schedule Generator", layout="wide", page_icon="📚")
+    
     init_database()  # Make sure DB is set up
 
     st.title("Class Schedule Generator")
@@ -410,14 +414,49 @@ def main():
         st.session_state["schedule_index"] = 0
 
     st.success(f"Found {len(schedules)} valid schedules.")
-    left_col, _, right_col = st.columns([1,2,1])
-    with left_col:
-        if st.button("Previous"):
-            st.session_state["schedule_index"] = max(0, st.session_state["schedule_index"] - 1)
-    with right_col:
-        if st.button("Next"):
-            st.session_state["schedule_index"] = min(len(schedules)-1, st.session_state["schedule_index"] + 1)
+    prev_col, next_col, space_col, save_col = st.columns([2, 2, 3, 2])
 
+    with prev_col:
+        if st.button("Previous"):
+            st.session_state["schedule_index"] = max(
+                0, st.session_state["schedule_index"] - 1
+            )
+
+    with next_col:
+        if st.button("Next"):
+            st.session_state["schedule_index"] = min(
+                len(schedules) - 1, st.session_state["schedule_index"] + 1
+            )
+
+    with save_col:
+        if st.session_state["logged_in"]:
+            if st.button("Save Schedule"):
+                # We'll store just the course codes + some summary
+                # so we can reconstruct them on the "SavedCourses" page
+                schedule_data = {
+                    "course_codes": [c[0] for c in selected["combo"]],
+                    "metrics": {
+                        "num_days": selected["num_days"],
+                        "gap_time": selected["gap_time"],
+                        "max_consec": selected["max_consec"],
+                        "earliest_start": selected["earliest_start"],
+                        "latest_end": selected["latest_end"],
+                        "total_penalty": selected["total_penalty"],
+                        "total_ects": selected["total_ects"],
+                    },
+                }
+                db = next(get_db_session())
+                ok, msg = save_schedule_for_user(
+                    db, st.session_state["user_id"], schedule_data
+                )
+                db.close()
+                if ok:
+                    st.success("Schedule saved to your account!")
+                else:
+                    st.error(msg)
+        else:
+            st.info("Login or register to save schedules.")
+            
     idx = st.session_state["schedule_index"]
     selected = schedules[idx]
     st.write(f"Schedule {idx+1} / {len(schedules)}")
@@ -425,37 +464,7 @@ def main():
     fig = plot_schedule(selected["combo"])
     st.pyplot(fig)
     
-    # -----------------------------
-    # Saving schedule (login required) -- appears below the schedule
-    # -----------------------------
-    # st.subheader("Save this Schedule")
-    if st.session_state["logged_in"]:
-        if st.button("Save Schedule"):
-            # We'll store just the course codes + some summary 
-            # so we can reconstruct them on the "SavedCourses" page
-            schedule_data = {
-                "course_codes": [c[0] for c in selected["combo"]],
-                "metrics": {
-                    "num_days": selected['num_days'],
-                    "gap_time": selected['gap_time'],
-                    "max_consec": selected['max_consec'],
-                    "earliest_start": selected['earliest_start'],
-                    "latest_end": selected['latest_end'],
-                    "total_penalty": selected['total_penalty'],
-                    "total_ects": selected['total_ects']
-                }
-            }
-            db = next(get_db_session())
-            ok, msg = save_schedule_for_user(db, st.session_state["user_id"], schedule_data)
-            db.close()
-            if ok:
-                st.success("Schedule saved to your account!")
-            else:
-                st.error(msg)
-    else:
-        st.info("Login or register to save schedules.")
-
-    st.subheader("Schedule Details")
+    
     st.write(f"**Total ECTS:** {selected['total_ects']}")
     st.write("**Courses in Schedule:**")
     for code, course in selected["combo"]:
@@ -465,13 +474,15 @@ def main():
             f"- [Syllabus](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence/curriculum/syllabus/{code}-MAI)"
         )
 
-    st.write("**Metrics:**")
-    st.write(f"- Days: {selected['num_days']}")
-    st.write(f"- Gap Hours: {selected['gap_time']}")
-    st.write(f"- Max Consecutive: {selected['max_consec']} hours")
-    st.write(f"- Earliest Start: {selected['earliest_start']}:00")
-    st.write(f"- Latest End: {selected['latest_end']}:00")
-    st.write(f"- Total Penalty: {selected['total_penalty']:.3f}")
-
 if __name__ == "__main__":
+    
+    add_page_title()
+    
+    show_pages(
+        [
+            Page("streamlit_app.py", "Home", "🏠"),
+            Page("pages/saved_courses.py", "Saved Courses", "💾"),
+        ]
+    )
+    
     main()

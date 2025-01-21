@@ -6,3 +6,4 @@ PyMySQL==1.1.0          # Only needed if using MySQL
 matplotlib==3.7.1
 matplotlib
 bcrypt
+st-pages

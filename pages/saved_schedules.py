@@ -61,7 +61,7 @@ def main():
         for code, course in combo:
             st.write(
                 f"- **{code}** ({course['University']}): {course['ECTS']} ECTS "
-                f"- [Syllabus](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence/curriculum/syllabus/MBM-{code})"
+                f"- [Syllabus](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence/curriculum/syllabus/MAI-{code})"
             )
     else:
         st.warning("No valid courses to display.")

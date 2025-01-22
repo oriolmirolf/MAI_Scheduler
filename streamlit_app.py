@@ -475,7 +475,7 @@ def main():
         # Add the clickable syllabus link using MBM-{code} pattern
         st.write(
             f"- **{code}** ({course['University']}): {course['ECTS']} ECTS "
-            f"- [Syllabus](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence/curriculum/syllabus/MAI-{code})"
+            f"- [Syllabus](https://www.fib.upc.edu/en/studies/masters/master-artificial-intelligence/curriculum/syllabus/{code}-MAI)"
         )
 
 if __name__ == "__main__":
